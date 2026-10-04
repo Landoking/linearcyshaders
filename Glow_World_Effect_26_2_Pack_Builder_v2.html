@@ -1,0 +1,552 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Glow World Effect — 26.2 Pack Builder</title><style>
+*{box-sizing:border-box}body{margin:0;background:#101217;color:#e8e8ee;font:14px system-ui,Segoe UI,sans-serif}main{max-width:1440px;margin:22px auto;padding:0 16px}h1{margin:0 0 4px;font-size:24px}.sub{color:#9aa;margin-bottom:14px}
+.card{background:#171a21;border:1px solid #2c303b;border-radius:10px;padding:14px;margin:12px 0}details.g{background:#171a21;border:1px solid #2c303b;border-radius:10px;margin:10px 0;overflow:hidden}details.g>summary{cursor:pointer;padding:12px 15px;font-weight:700;background:#1c1f28}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;padding:12px}.c{background:#1a1d25;border:1px solid #2c303b;border-radius:8px;padding:10px}.top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+label{font-weight:600}small{color:#7d8594;display:block;margin-top:5px;font-size:12px;line-height:1.45}input,select,textarea{background:#0c0e12;color:#eee;border:1px solid #2c303b;border-radius:6px;padding:6px 8px;font:inherit;max-width:100%}input[type=range]{width:100%;padding:0}.num{width:84px;text-align:right;font-family:monospace}input[type=color]{padding:0;width:44px;height:30px}input:disabled{opacity:.35}
+.w{width:100%}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}.row>*{flex:1;min-width:140px}button{border:0;border-radius:8px;padding:9px 13px;background:#5b7cfa;color:#fff;font-weight:700;cursor:pointer}button.s{background:#30343e}button:hover{filter:brightness(1.12)}
+#st{color:#8fd3a8;min-height:20px;margin:6px 0}.err,#st.err{color:#f08a8a}textarea{width:100%;height:240px;font-family:monospace;font-size:12px}.hint{color:#8a93a3;font-size:13px;line-height:1.5}code{background:#0c0e12;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}.side{position:sticky;top:10px}@media(max-width:960px){.cols{grid-template-columns:minmax(0,1fr)}.side{position:static}}
+.li{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #2c303b;border-radius:8px;margin:6px 0;cursor:pointer;background:#1a1d25}.li.on{border-color:#5b7cfa;background:#1d2234}.li.off .nm,.li.off .tg{opacity:.45}
+.li .nm{font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.li .tg{color:#8a93a3;font-size:12px;white-space:nowrap}.dot{width:14px;height:14px;border-radius:50%;border:1px solid #666;flex:none}.dot.any{background:conic-gradient(#f55,#ff5,#5f5,#5ff,#55f,#f5f,#f55)}
+.btns{display:flex;gap:6px;flex-wrap:wrap}.btns button{padding:7px 10px}canvas{width:100%;aspect-ratio:16/9;display:block;border-radius:8px;background:#000}
+</style></head><body><main>
+<h1>Glow World Effect — 26.2 Pack Builder</h1>
+<div class="sub">Builds a resource pack for Minecraft 26.2 (pack format 88). Stack shader layers; each one switches on when a glowing entity of its color is on screen.</div>
+<div class="card hint"><b>How it works:</b> the pack replaces <code>post_effect/entity_outline.json</code>, the post effect the game runs while a glowing entity is on screen. Every layer is a full-screen shader pass. It reads the screen, the glow mask (which holds each entity's glow color) and, for depth effects, the depth buffer.<br>
+<b>Glow colors:</b> an entity glows in its team color, and white without a team. Give a layer a trigger color and it only runs while an entity glowing in that color is in view. Display entities can glow in any color with <code>glow_color_override</code>.<br>
+<b>Install:</b> put the zip in <code>.minecraft/resourcepacks</code>, enable it, press <b>F3+T</b> after any change. <span style="color:#e8c46a">If the game reports an error loading <code>entity_outline</code>, send the log line.</span></div>
+<div class="cols"><div>
+<div class="card"><div class="row"><div><label>Pack name</label><br><input id="pname" class="w"></div><div><label>Pack format</label><br><input id="pfmt" type="number" class="w"></div><div style="flex:2"><label>Description</label><br><input id="pdesc" class="w"></div></div>
+<div class="row" style="margin-top:10px"><div><label>Your FOV</label><br><input id="g_FOV" type="number" min="30" max="110" class="w"></div><div><label>Render distance (chunks)</label><br><input id="g_RENDER_DIST" type="number" min="2" max="32" class="w"></div><div><label>Cloud distance (chunks)</label><br><input id="g_CLOUD_DIST" type="number" min="2" max="128" class="w"></div><div><label>Other entities' glow</label><br><select id="g_OTHER_OUTLINES" class="w"><option value="0">Hide outline</option><option value="1">Keep outline</option></select></div></div>
+<small>FOV, render distance and cloud distance (Video Settings) only matter for depth effects: the shader needs them to rebuild 3D positions. Turn off <i>FOV Effects</i> (Accessibility) or sprinting will skew them a little. "Other entities" are glowing entities that no layer triggers on.</small></div>
+<div class="card"><div class="top"><label>Shader layers</label><div class="btns"><button onclick="addLayer()">+ Add</button><button class="s" onclick="dupLayer()">Duplicate</button><button class="s" onclick="moveLayer(-1)" title="Move up">↑</button><button class="s" onclick="moveLayer(1)" title="Move down">↓</button><button class="s" onclick="delLayer()">Delete</button></div></div>
+<div id="layers"></div><small>Layers run top to bottom, and each one sees the result of the layers above it. Untick a layer to leave it out of the pack.</small></div>
+<div class="card"><div class="row"><div style="flex:2"><label>Layer name</label><br><input id="lname" class="w"></div><div><label>Preset</label><br><select id="preset" class="w"></select></div></div>
+<div class="row" style="margin-top:10px"><div style="flex:2"><label>Activated by glow color</label><br><select id="trig" class="w"></select></div><div style="flex:0 0 auto;min-width:0"><input type="color" id="tcol" title="Trigger color"></div><div><label>Color tolerance</label><br><input type="range" id="tol" min="0" max="0.3" step="0.005"></div></div>
+<small id="thint"></small></div>
+<div id="groups"></div>
+<details class="g"><summary>Custom GLSL (advanced)</summary><div style="padding:12px"><textarea id="custom" spellcheck="false" style="height:140px" placeholder="// runs at the end of this layer; change c (the color, 0..1)&#10;// c = c.bgr;&#10;// c *= 0.8 + 0.2 * sin(T * 4.0);"></textarea><small>Runs at the end of this layer. You can use <code>c</code> (color), <code>uv</code>, <code>texCoord</code>, <code>T</code> (seconds), <code>px</code> (one pixel), <code>m</code> (trigger mask), <code>amt</code> (effect strength) and <code>S(uv)</code> (reads the screen). Errors show under the preview.</small></div></details>
+</div><div class="side">
+<div class="card"><div class="top"><label>Preview</label><div class="btns"><button class="s" id="cmp">Hold: original</button><button class="s" onclick="$('img').click()">Use a screenshot…</button><button class="s" onclick="drawScene()">Sample scene</button></div></div>
+<canvas id="pv" width="960" height="540"></canvas><input id="img" type="file" accept="image/*" style="display:none">
+<small id="pvnote">Every layer is shown as if its glow color is on screen, and the figure stands in for the glowing entity. Depth effects (AO, reflections, fog, distance pixelation) only show in game.</small><div id="pverr" class="err" style="font-size:12px;white-space:pre-wrap"></div></div>
+<div class="row"><button onclick="dlZip()">Download resource pack (.zip)</button><button class="s" onclick="saveFolder()">Save pack to a folder…</button></div>
+<div class="row" style="margin-top:8px"><button class="s" onclick="dlText('glow_world_effect.json',exportJson(ST))">Export settings</button><button class="s" onclick="$('imp').click()">Import settings / pack…</button><button class="s" onclick="if(confirm('Reset all layers and settings?'))loadState(newState(),'Reset')">Reset</button><input id="imp" type="file" accept=".json,.zip,.fsh,.txt" style="display:none"></div>
+<div id="st"></div><small>Import accepts settings files from this version or the older single-effect builder, packs made by either one (.zip), or an old <code>world_effect.fsh</code>. Your work is also kept in this browser between visits.</small>
+<details class="g"><summary>Generated shader (selected layer)</summary><textarea id="fsh" readonly></textarea></details>
+<details class="g"><summary>Generated entity_outline.json</summary><textarea id="pj" readonly></textarea></details>
+</div></div>
+</main><script>
+//CORE_START
+const MAX_LAYERS=32;
+const TEAM=[['white','#ffffff'],['black','#000000'],['dark_blue','#0000aa'],['dark_green','#00aa00'],['dark_aqua','#00aaaa'],['dark_red','#aa0000'],['dark_purple','#aa00aa'],['gold','#ffaa00'],['gray','#aaaaaa'],['dark_gray','#555555'],['blue','#5555ff'],['green','#55ff55'],['aqua','#55ffff'],['red','#ff5555'],['light_purple','#ff55ff'],['yellow','#ffff55']];
+const SEL={MASK_MODE:['Whole screen','Only on the trigger entities','Everywhere except the trigger entities'],OUTLINE:['Hide their glow outline','Keep their glow outline'],DIST_SKY:['Skip sky','Pixelate sky too']};
+// [key,label,min,max,step,default,tip]   SEL keys: [key,label,tip]   colors: [key,label,'#',default]
+const G=[
+['Activation',[['MASK_MODE','Where it applies'],['OUTLINE','Trigger entities','The vanilla glow outline on the entities that trigger this layer.'],['INTENSITY','Effect intensity',0,1,.01,1,'Blend between the normal image (0) and the full effect (1).'],['PULSE','Pulse',0,1,.01,0,'Fades the effect in and out over time.'],['PULSE_SPEED','Pulse speed (per second)',.05,5,.05,1]]],
+['Color & Image',[['BRIGHTNESS','Brightness',0,3,.01,1],['CONTRAST','Contrast',0,3,.01,1],['SATURATION','Saturation',0,3,.01,1],['HUE','Hue shift',-.5,.5,.005,0,'Rotates colors around the wheel. 0.5 = opposite colors.'],['GAMMA','Gamma',.2,3,.01,1],['TEMPERATURE','Temperature',-1,1,.01,0,'Negative = cooler (blue), positive = warmer (orange).'],['SEPIA','Sepia',0,1,.01,0],['INVERT','Invert',0,1,.01,0],['TINT_STRENGTH','Tint strength',0,1,.01,0],['TINT_COLOR','Tint color','#','#ffaa55'],['POSTERIZE','Posterize levels',0,32,1,0,'0 = off.']]],
+['Lens & Glow',[['PIXELATE','Pixelate (px)',0,32,1,0,'Flat pixel size on screen. 0 = off.'],['BARREL','Barrel / fisheye',-2,2,.01,0],['CHROMATIC','Chromatic split (px)',0,20,.1,0],['WAVE','Wave distortion',0,3,.01,0],['SHAKE','Camera shake',0,3,.01,0],['ZOOM_BLUR','Zoom blur',0,3,.01,0,'Radial blur toward the center, like speed lines.'],['BLUR','Blur (px)',0,8,.1,0],['SHARPEN','Sharpen',0,2,.01,0],['BLOOM','Bloom',0,3,.01,0],['BLOOM_THRESHOLD','Bloom threshold',0,1,.01,.6],['VIGNETTE','Vignette',0,1.5,.01,0],['VIGNETTE_COLOR','Vignette color','#','#000000']]],
+['Retro & Noise',[['SCANLINES','Scanlines',0,1,.01,0],['GRAIN','Film grain',0,3,.01,0],['DITHER','Dither',0,3,.01,0],['JITTER','VHS line jitter',0,3,.01,0],['EDGES','Outlines (toon)',0,1,.01,0,'Draws lines along edges in the image.'],['EDGE_COLOR','Outline color','#','#000000']]],
+['Depth effects (in game only)',[['DIST_PIXEL','Distance pixelation (max px)',0,32,1,0,'Far things get chunkier, in clean power-of-2 blocks. 0 = off.'],['DIST_START','Pixelation starts (blocks)',0,512,1,24],['DIST_END','Pixelation maxed (blocks)',1,1024,1,96],['DIST_SKY','Sky'],
+['AO','Soft shadows (AO)',0,3,.01,0,'Ambient occlusion: soft contact shadows in corners, under objects and feet.'],['AO_RADIUS','AO radius (blocks)',.05,4,.01,.7],
+['REFLECT','Reflections',0,2,.01,0,'Screen-space reflections, strongest at shallow viewing angles. Only things already on screen can show up in them.'],['REFLECT_BASE','Reflect minimum',0,1,.01,.04],['REFLECT_FRESNEL','Reflect falloff',.5,8,.1,3],['REFLECT_BLUR','Reflect blur',0,8,.1,1.5],
+['FOG','Depth fog',0,1,.01,0],['FOG_START','Fog start (blocks)',0,1024,1,32],['FOG_END','Fog end (blocks)',1,2048,1,192],['FOG_COLOR','Fog color','#','#9fb8d8']]]];
+const K=[];G.forEach(g=>g[1].forEach(c=>K.push(c)));
+const isCol=c=>c[2]==='#';
+const FX={};K.forEach(c=>FX[c[0]]=SEL[c[0]]?0:isCol(c)?c[3]:c[5]);
+const DEPTH_KEYS=['DIST_PIXEL','AO','REFLECT','FOG'];
+const newLayer=name=>Object.assign({name:name||'Layer',enabled:true,TRIGGER:'any',TOL:.04,CUSTOM:''},FX);
+const newState=()=>({version:2,pack:{name:'GlowWorldEffect',desc:'Glow World Effect',format:88},FOV:70,RENDER_DIST:12,CLOUD_DIST:128,OTHER_OUTLINES:0,layers:[newLayer('Main')]});
+const PRE={Reset:{},Cinematic:{CONTRAST:1.12,SATURATION:1.1,VIGNETTE:.5,BLOOM:.5,BLOOM_THRESHOLD:.65,GRAIN:.3,CHROMATIC:1.2},
+'VHS Tape':{SATURATION:.9,SCANLINES:.3,GRAIN:.4,JITTER:1,CHROMATIC:4,BLUR:.8,VIGNETTE:.3,BARREL:.2},
+'Retro Pixel':{PIXELATE:4,POSTERIZE:12,DITHER:.8,SATURATION:1.2,CONTRAST:1.1},
+'Dreamy Bloom':{BLOOM:1.6,BLOOM_THRESHOLD:.4,BLUR:1.5,SATURATION:1.15,BRIGHTNESS:1.05,VIGNETTE:.2},
+Noir:{SATURATION:0,CONTRAST:1.3,GRAIN:.7,VIGNETTE:.6,GAMMA:1.05},
+'Realistic World (depth)':{DIST_PIXEL:8,DIST_START:32,DIST_END:160,AO:1.2,AO_RADIUS:.7,REFLECT:.5,FOG:.35,CONTRAST:1.06,SATURATION:1.05},
+'Damage Pulse':{VIGNETTE:1.2,VIGNETTE_COLOR:'#b00000',PULSE:.6,PULSE_SPEED:1.5,SHAKE:.6,SATURATION:.7,CHROMATIC:2},
+Toon:{EDGES:1,POSTERIZE:8,SATURATION:1.3,SHARPEN:.3},
+Underwater:{WAVE:.6,TINT_STRENGTH:.6,TINT_COLOR:'#3a8fd0',BLUR:1.2,VIGNETTE:.6,VIGNETTE_COLOR:'#002040',SATURATION:.8},
+'Speed Rush':{ZOOM_BLUR:1.5,CHROMATIC:3,VIGNETTE:.4,CONTRAST:1.1}};
+const hx=h=>[1,3,5].map(i=>(parseInt(h.slice(i,i+2),16)/255).toFixed(4)).join(',');
+const f4=v=>Number(v).toFixed(4);
+const usesDepth=L=>L.DIST_PIXEL>1||L.AO>.001||L.REFLECT>.001||L.FOG>.001;
+const needsGlow=L=>L.TRIGGER!=='any'&&+L.MASK_MODE!==1;   // "only on the trigger entities" just reads the mask
+const farPlane=st=>Math.max(st.RENDER_DIST*64,st.CLOUD_DIST*16);
+const enabledLayers=st=>st.layers.filter(L=>L.enabled);
+const glowSlot=(st,L)=>Math.max(0,enabledLayers(st).filter(needsGlow).indexOf(L));
+
+function buildLayerFsh(L,slot,st,preview){
+const h=(preview?'#version 300 es\nprecision highp float;\nprecision highp int;\n':'#version 330\n')+'#define PREVIEW '+(preview?1:0)+'\n#define USE_DEPTH '+(!preview&&usesDepth(L)?1:0)+'\n#define USE_GLOW '+(!preview&&needsGlow(L)?1:0)+'\n#define TRIG_ANY '+(L.TRIGGER==='any'?1:0)+'\n#define SLOT '+slot+'\n'+
+'const float FOV = '+f4(st.FOV)+';\nconst float FAR = '+f4(farPlane(st))+';\nconst vec3 TRIGGER = vec3('+(L.TRIGGER==='any'?'1.0,1.0,1.0':hx(L.TRIGGER))+');\nconst float TOL = '+f4(L.TOL)+';\n'+
+K.map(c=>isCol(c)?'const vec3 '+c[0]+' = vec3('+hx(L[c[0]])+');':'const float '+c[0]+' = '+f4(L[c[0]])+';').join('\n')+'\n';
+return h+TPL.replace('    //CUSTOM\n',()=>L.CUSTOM.trim()?'    {\n'+L.CUSTOM+'\n    }\n':'')}
+
+const TPL=`
+uniform sampler2D MainSampler;
+uniform sampler2D MaskSampler;
+#if USE_GLOW
+uniform sampler2D GlowSampler;
+#endif
+#if USE_DEPTH
+uniform sampler2D DepthSampler;
+#endif
+
+#if PREVIEW
+uniform vec2 OutSize;
+uniform vec2 MainSize;
+uniform float GameTime;
+#else
+layout(std140) uniform SamplerInfo {
+    vec2 OutSize;
+    vec2 MainSize;
+    vec2 MaskSize;
+#if USE_GLOW
+    vec2 GlowSize;
+#endif
+#if USE_DEPTH
+    vec2 DepthSize;
+#endif
+};
+
+layout(std140) uniform Globals {
+    ivec3 CameraBlockPos;
+    vec3 CameraOffset;
+    vec2 ScreenSize;
+    float GlintAlpha;
+    float GameTime;
+    int MenuBlurRadius;
+    int UseRgss;
+};
+#endif
+
+in vec2 texCoord;
+out vec4 fragColor;
+
+float hash12(vec2 p){
+    vec3 p3=fract(vec3(p.xyx)*0.1031);
+    p3+=dot(p3,p3.yzx+33.33);
+    return fract((p3.x+p3.y)*p3.z);
+}
+vec3 S(vec2 p){ return texture(MainSampler,clamp(p,0.0,1.0)).rgb; }
+float luma(vec3 c){ return dot(c,vec3(0.2126,0.7152,0.0722)); }
+vec3 hueShift(vec3 c,float h){
+    float a=h*6.2831853; float cs=cos(a); float sn=sin(a);
+    vec3 k=vec3(0.57735);
+    return c*cs+cross(k,c)*sn+k*dot(k,c)*(1.0-cs);
+}
+
+// Is this layer's glow color anywhere on screen? glow_detect + 2x glow_reduce leave one bit per layer in a 1x1 target.
+bool triggered(){
+#if USE_GLOW
+    uvec4 g=uvec4(round(texelFetch(GlowSampler,ivec2(0),0)*255.0));
+    return ((g[SLOT/8]>>uint(SLOT%8))&1u)!=0u;
+#else
+    return true;
+#endif
+}
+// Coverage of this layer's trigger entities at a pixel (the outline target holds each entity's glow color).
+float maskAt(vec2 uv){
+    vec4 m=texture(MaskSampler,uv);
+#if TRIG_ANY || PREVIEW
+    return m.a;
+#else
+    return all(lessThanEqual(abs(m.rgb-TRIGGER),vec3(TOL)))?m.a:0.0;
+#endif
+}
+
+#if USE_DEPTH
+// Minecraft 26.2 depth is reversed: 1 at the near plane (0.05 blocks), 0 at the far plane and in the sky.
+// The far plane is max(render distance * 64, cloud distance * 16) blocks.
+const float NEAR=0.05;
+float rawDepth(vec2 uv){ return texture(DepthSampler,clamp(uv,0.0,1.0)).r; }
+float viewZ(vec2 uv){ return NEAR*FAR/(rawDepth(uv)*(FAR-NEAR)+NEAR); }
+vec3 viewPos(vec2 uv){
+    float z=viewZ(uv);
+    float t=tan(radians(FOV)*0.5);
+    vec2 ndc=uv*2.0-1.0;
+    return vec3(ndc.x*t*(MainSize.x/MainSize.y)*z,ndc.y*t*z,-z);
+}
+vec2 projectUV(vec3 p){
+    float t=tan(radians(FOV)*0.5);
+    return vec2(p.x/(t*(MainSize.x/MainSize.y)*-p.z),p.y/(t*-p.z))*0.5+0.5;
+}
+vec3 viewNormal(vec2 uv,vec3 p){
+    vec2 px=1.0/MainSize;
+    vec3 r=viewPos(uv+vec2(px.x,0.0));
+    vec3 l=viewPos(uv-vec2(px.x,0.0));
+    vec3 u=viewPos(uv+vec2(0.0,px.y));
+    vec3 d=viewPos(uv-vec2(0.0,px.y));
+    vec3 dx=abs(r.z-p.z)<abs(p.z-l.z)?r-p:p-l;
+    vec3 dy=abs(u.z-p.z)<abs(p.z-d.z)?u-p:p-d;
+    vec3 n=normalize(cross(dx,dy));
+    return dot(n,p)>0.0?-n:n;
+}
+// distance pixelation: the block size (power of 2) a point wants
+float wantBlock(vec2 uv){
+    if(rawDepth(uv)<=0.0&&DIST_SKY<0.5) return 1.0;
+    float k=clamp((viewZ(uv)-DIST_START)/max(DIST_END-DIST_START,0.001),0.0,1.0);
+    return exp2(floor(k*log2(DIST_PIXEL)+0.5));
+}
+// use the largest block whose own center wants at least that size, so blocks tile cleanly along depth edges
+vec2 distPixel(vec2 uv){
+    for(float s=exp2(floor(log2(DIST_PIXEL)));s>1.5;s*=0.5){
+        vec2 c=(floor(uv*MainSize/s)+0.5)*s/MainSize;
+        if(wantBlock(c)>=s) return c;
+    }
+    return uv;
+}
+#endif
+
+void main(){
+    vec4 o4=texture(MainSampler,texCoord);
+    float T=GameTime*1200.0;
+    float m=maskAt(texCoord);
+    float amt=(MASK_MODE<0.5?1.0:(MASK_MODE<1.5?m:1.0-m))*INTENSITY;
+    if(!triggered()) amt=0.0;
+    if(PULSE>0.001) amt*=1.0-PULSE*(0.5-0.5*cos(T*PULSE_SPEED*6.2831853));
+    if(amt<0.0005){ fragColor=o4; return; }
+
+    vec2 px=1.0/MainSize;
+    vec2 p=texCoord*2.0-1.0;
+    p*=1.0+BARREL*0.12*dot(p,p);
+    if(WAVE>0.0){
+        p.y+=sin(p.x*18.0+T*2.0)*0.015*WAVE;
+        p.x+=sin(p.y*14.0+T*1.5)*0.010*WAVE;
+    }
+    vec2 uv=p*0.5+0.5;
+    if(SHAKE>0.0) uv+=vec2(sin(T*37.0)+sin(T*23.3),cos(T*29.0)+sin(T*41.7))*0.004*SHAKE;
+    if(JITTER>0.0) uv.x+=(hash12(vec2(floor(gl_FragCoord.y/3.0),floor(T*30.0)))-0.5)*0.012*JITTER;
+    if(PIXELATE>1.0){
+        vec2 cell=PIXELATE*px;
+        uv=(floor(uv/cell)+0.5)*cell;
+    }
+#if USE_DEPTH
+    if(DIST_PIXEL>1.0) uv=distPixel(uv);
+#endif
+
+    vec3 c;
+    if(CHROMATIC>0.001){
+        vec2 o=vec2(CHROMATIC*px.x,0.0);
+        c=vec3(S(uv+o).r,S(uv).g,S(uv-o).b);
+    } else c=S(uv);
+
+    if(ZOOM_BLUR>0.001){
+        vec3 z=c;
+        for(int i=1;i<9;i++) z+=S(mix(uv,vec2(0.5),float(i)*0.008*ZOOM_BLUR));
+        c=z/9.0;
+    }
+
+    if(BLUR>0.001){
+        vec3 b=c;
+        for(int i=0;i<8;i++){
+            float a=float(i)*0.785398;
+            b+=S(uv+vec2(cos(a),sin(a))*BLUR*px);
+        }
+        c=b/9.0;
+    }
+
+    if(SHARPEN>0.001){
+        vec3 nb=(S(uv+vec2(px.x,0.0))+S(uv-vec2(px.x,0.0))+S(uv+vec2(0.0,px.y))+S(uv-vec2(0.0,px.y)))*0.25;
+        c+=(c-nb)*SHARPEN*2.0;
+    }
+
+    if(BLOOM>0.001){
+        vec3 bl=vec3(0.0);
+        for(int i=0;i<8;i++){
+            float a=float(i)*0.785398;
+            vec2 d=vec2(cos(a),sin(a));
+            bl+=max(S(uv+d*px*6.0)-BLOOM_THRESHOLD,0.0)+max(S(uv+d*px*14.0)-BLOOM_THRESHOLD,0.0);
+        }
+        c+=bl/16.0*BLOOM*2.0;
+    }
+
+    if(EDGES>0.001){
+        float tl=luma(S(uv+px*vec2(-1.0,1.0))),tc=luma(S(uv+vec2(0.0,px.y))),tr=luma(S(uv+px));
+        float ml=luma(S(uv-vec2(px.x,0.0))),mr=luma(S(uv+vec2(px.x,0.0)));
+        float bl=luma(S(uv-px)),bc=luma(S(uv-vec2(0.0,px.y))),br=luma(S(uv+px*vec2(1.0,-1.0)));
+        vec2 g=vec2(tr+2.0*mr+br-tl-2.0*ml-bl,tl+2.0*tc+tr-bl-2.0*bc-br);
+        c=mix(c,EDGE_COLOR,smoothstep(0.1,0.4,length(g))*EDGES);
+    }
+
+#if USE_DEPTH
+    if((AO>0.001||REFLECT>0.001||FOG>0.001)&&rawDepth(uv)>0.0){
+        vec3 vp=viewPos(uv);
+        if(FOG>0.001){
+            c=mix(c,FOG_COLOR,smoothstep(FOG_START,max(FOG_END,FOG_START+0.01),-vp.z)*FOG);
+        }
+        vec3 n=viewNormal(uv,vp);
+        if(AO>0.001){
+            float occ=0.0;
+            vec3 rv=normalize(vec3(hash12(gl_FragCoord.xy),hash12(gl_FragCoord.yx+3.7),hash12(gl_FragCoord.xy+8.1))*2.0-1.0+0.001);
+            for(int i=0;i<12;i++){
+                float fi=float(i);
+                vec3 dir=normalize(vec3(hash12(vec2(fi,1.3)),hash12(vec2(fi,5.9)),hash12(vec2(fi,9.1)))*2.0-1.0+0.001);
+                dir=reflect(dir,rv);
+                if(dot(dir,n)<0.0) dir=-dir;
+                vec3 sp=vp+dir*AO_RADIUS*mix(0.25,1.0,(fi+1.0)/12.0);
+                if(sp.z>-0.05) continue;
+                vec2 suv=projectUV(sp);
+                if(suv.x<0.0||suv.x>1.0||suv.y<0.0||suv.y>1.0) continue;
+                float sceneZ=viewZ(suv);
+                occ+=step(0.02,-sp.z-sceneZ)*smoothstep(0.0,1.0,AO_RADIUS/max(abs(-vp.z-sceneZ),0.0001));
+            }
+            c*=1.0-clamp(occ/12.0*AO,0.0,0.9);
+        }
+        if(REFLECT>0.001){
+            vec3 v=normalize(vp);
+            vec3 rd=reflect(v,n);
+            float fres=mix(REFLECT_BASE,1.0,pow(1.0-clamp(dot(n,-v),0.0,1.0),REFLECT_FRESNEL));
+            if(rd.z<0.0&&fres*REFLECT>0.01){
+                vec3 rp=vp+n*0.03;
+                float stepLen=0.12;
+                vec2 hitUV=vec2(0.0);
+                bool hit=false;
+                for(int i=0;i<32;i++){
+                    rp+=rd*stepLen;
+                    stepLen*=1.14;
+                    if(rp.z>-0.05) break;
+                    vec2 suv=projectUV(rp);
+                    if(suv.x<0.0||suv.x>1.0||suv.y<0.0||suv.y>1.0) break;
+                    float diff=-rp.z-viewZ(suv);
+                    if(diff>0.0&&diff<stepLen*1.5+0.1){ hit=true; hitUV=suv; break; }
+                }
+                if(hit){
+                    vec2 bp=REFLECT_BLUR*px;
+                    vec3 rc=S(hitUV)*0.4+(S(hitUV+vec2(bp.x,0.0))+S(hitUV-vec2(bp.x,0.0))+S(hitUV+vec2(0.0,bp.y))+S(hitUV-vec2(0.0,bp.y)))*0.15;
+                    vec2 e=abs(hitUV-0.5)*2.0;
+                    c=mix(c,rc,clamp(fres*REFLECT,0.0,1.0)*(1.0-pow(max(e.x,e.y),6.0)));
+                }
+            }
+        }
+    }
+#endif
+
+    c*=BRIGHTNESS;
+    c=(c-0.5)*CONTRAST+0.5;
+    float l=luma(c);
+    c=mix(vec3(l),c,SATURATION);
+    c=mix(c,vec3(dot(c,vec3(0.299,0.587,0.114)))*vec3(1.07,0.74,0.43),SEPIA);
+    if(abs(HUE)>0.0005) c=hueShift(c,HUE);
+    c=mix(c,c*TINT_COLOR*1.5,TINT_STRENGTH);
+    if(abs(TEMPERATURE)>0.001) c*=mix(vec3(1.0),TEMPERATURE>0.0?vec3(1.12,1.0,0.82):vec3(0.84,0.96,1.16),abs(TEMPERATURE));
+    c=mix(c,1.0-c,INVERT);
+    if(SCANLINES>0.001) c*=1.0-SCANLINES*0.5*(0.5+0.5*sin(gl_FragCoord.y*3.14159));
+    if(GRAIN>0.001) c+=(hash12(gl_FragCoord.xy+fract(T)*97.0)-0.5)*GRAIN*0.25;
+    if(DITHER>0.001) c+=(hash12(gl_FragCoord.xy)-0.5)*DITHER*0.055;
+    if(VIGNETTE>0.001) c=mix(c,VIGNETTE_COLOR,smoothstep(0.35,1.0,length(texCoord*2.0-1.0)*0.7071)*min(VIGNETTE,1.0));
+    if(POSTERIZE>1.0){ float lv=max(2.0,POSTERIZE); c=floor(clamp(c,0.0,1.0)*lv+0.5)/lv; }
+    c=pow(max(c,vec3(0.0)),vec3(1.0/max(GAMMA,0.001)));
+    //CUSTOM
+    fragColor=vec4(mix(o4.rgb,clamp(c,0.0,1.0),clamp(amt,0.0,1.0)),o4.a);
+}
+`;
+
+const VSH='#version 330\n\nout vec2 texCoord;\n\nvoid main() {\n    vec2 uv = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);\n    gl_Position = vec4(uv * 2.0 - 1.0, 0.0, 1.0);\n    texCoord = uv;\n}\n';
+const COPY='#version 330\n\nuniform sampler2D InSampler;\n\nin vec2 texCoord;\nout vec4 fragColor;\n\nvoid main() {\n    fragColor = texture(InSampler, texCoord);\n}\n';
+const CLEAR='#version 330\n\nuniform sampler2D InSampler;\n\nin vec2 texCoord;\nout vec4 fragColor;\n\nvoid main() {\n    fragColor = vec4(0.0);\n}\n';
+const BLOCK_LOOP='    vec2 r = InSize / OutSize;\n    ivec2 a = ivec2(floor((gl_FragCoord.xy - 0.5) * r));\n    ivec2 b = min(max(ivec2(floor((gl_FragCoord.xy + 0.5) * r)), a + 1), ivec2(InSize));\n    uvec4 bits = uvec4(0u);\n    for (int y = a.y; y < b.y; y++)\n        for (int x = a.x; x < b.x; x++) {\n';
+const SAMPLER_INFO='uniform sampler2D InSampler;\n\nlayout(std140) uniform SamplerInfo {\n    vec2 OutSize;\n    vec2 InSize;\n};\n\nout vec4 fragColor;\n\n';
+const REDUCE='#version 330\n\n'+SAMPLER_INFO+'// ORs together the per-layer bits of the input texels under this output texel\nvoid main() {\n'+BLOCK_LOOP+'            bits |= uvec4(round(texelFetch(InSampler, ivec2(x, y), 0) * 255.0));\n        }\n    fragColor = vec4(bits) / 255.0;\n}\n';
+function buildDetectFsh(st){const T=enabledLayers(st).filter(needsGlow);
+return '#version 330\n\n'+SAMPLER_INFO+'// one bit per color-triggered layer: set when its glow color is somewhere in this block of the glow mask\nconst int NT = '+T.length+';\nconst vec3 TC[NT] = vec3[NT]('+T.map(L=>'vec3('+hx(L.TRIGGER)+')').join(', ')+');\nconst float TT[NT] = float[NT]('+T.map(L=>f4(L.TOL)).join(', ')+');\n\nvoid main() {\n'+BLOCK_LOOP+
+'            vec4 m = texelFetch(InSampler, ivec2(x, y), 0);\n            if (m.a <= 0.0) continue;\n            for (int j = 0; j < NT; j++)\n                if (all(lessThanEqual(abs(m.rgb - TC[j]), vec3(TT[j])))) bits[j / 8] |= 1u << uint(j % 8);\n        }\n    fragColor = vec4(bits) / 255.0;\n}\n'}
+// 'clear' = every glow outline hidden, 'keep' = all kept (vanilla), 'filter' = drop the hidden ones before the vanilla outline passes
+function outlineMode(st){const Ls=enabledLayers(st);
+if(Ls.some(L=>L.TRIGGER==='any'&&+L.OUTLINE===0)||(+st.OTHER_OUTLINES===0&&Ls.every(L=>+L.OUTLINE===0)))return'clear';
+if(+st.OTHER_OUTLINES===1&&Ls.every(L=>+L.OUTLINE===1))return'keep';
+return'filter'}
+function buildFilterFsh(st){const b=enabledLayers(st).map(L=>'    if ('+(L.TRIGGER==='any'?'true':'all(lessThanEqual(abs(m.rgb - vec3('+hx(L.TRIGGER)+')), vec3('+f4(L.TOL)+')))')+') { matched = true; hide = hide || '+(+L.OUTLINE===0)+'; }\n').join('');
+return '#version 330\n\nuniform sampler2D InSampler;\n\nin vec2 texCoord;\nout vec4 fragColor;\n\n// removes the glow of entities whose layer hides it; the vanilla outline passes draw the rest\nvoid main() {\n    vec4 m = texture(InSampler, texCoord);\n    bool matched = false, hide = false;\n'+b+'    if (!matched) hide = '+(+st.OTHER_OUTLINES===0)+';\n    fragColor = hide ? vec4(0.0) : m;\n}\n'}
+
+function buildJson(st){const V='minecraft:post/world_effect',OUT='minecraft:entity_outline',Q='minecraft:core/screenquad';
+const I=(n,t,x)=>Object.assign({sampler_name:n,target:t},x||{}),P=(f,inputs,output,v)=>({vertex_shader:v||V,fragment_shader:f.includes(':')?f:'minecraft:post/'+f,inputs,output});
+const Ls=enabledLayers(st),targets={swap:{}},passes=[];
+if(Ls.some(needsGlow)){Object.assign(targets,{glow_a:{width:240,height:135},glow_b:{width:16,height:9},glow:{width:1,height:1}});
+passes.push(P('glow_detect',[I('In',OUT)],'glow_a'),P('glow_reduce',[I('In','glow_a')],'glow_b'),P('glow_reduce',[I('In','glow_b')],'glow'))}
+let src='minecraft:main';
+Ls.forEach((L,i)=>{const out=i%2?'swap2':'swap';if(i%2)targets.swap2={};
+const inp=[I('Main',src),I('Mask',OUT)];if(needsGlow(L))inp.push(I('Glow','glow'));if(usesDepth(L))inp.push(I('Depth','minecraft:main',{use_depth_buffer:true}));
+passes.push(P('world_effect_'+i,inp,out));src=out});
+if(Ls.length)passes.push(P('world_copy',[I('In',src)],'minecraft:main'));
+const mode=outlineMode(st);
+if(mode==='clear')passes.push(P('world_clear',[I('In','minecraft:main')],OUT));
+else{let first=OUT;if(mode==='filter'){targets.outline_src={};passes.push(P('glow_filter',[I('In',OUT)],'outline_src'));first='outline_src'}
+const B=(x,y)=>({BlurConfig:[{name:'BlurDir',type:'vec2',value:[x,y]},{name:'Radius',type:'float',value:2}]});
+passes.push(P('minecraft:post/entity_sobel',[I('In',first)],'swap',Q),
+Object.assign(P('minecraft:post/entity_outline_box_blur',[I('In','swap',{bilinear:true})],OUT,Q),{uniforms:B(1,0)}),
+Object.assign(P('minecraft:post/entity_outline_box_blur',[I('In',OUT,{bilinear:true})],'swap',Q),{uniforms:B(0,1)}),
+Object.assign(P('minecraft:post/blit',[I('In','swap')],OUT,Q),{uniforms:{BlitConfig:[{name:'ColorModulate',type:'vec4',value:[1,1,1,1]}]}}))}
+return JSON.stringify({targets,passes},null,2)}
+
+const exportJson=st=>JSON.stringify(Object.assign({app:'glow-world-effect'},st),null,1);
+function buildPack(st){const n='assets/minecraft/',sh=n+'shaders/post/',Ls=enabledLayers(st);
+const fs=[{name:'pack.mcmeta',text:JSON.stringify({pack:{description:st.pack.desc,min_format:+st.pack.format,max_format:+st.pack.format}},null,2)},
+{name:'glow_world_effect.json',text:exportJson(st)},{name:n+'post_effect/entity_outline.json',text:buildJson(st)},
+{name:sh+'world_effect.vsh',text:VSH},{name:sh+'world_copy.fsh',text:COPY},{name:sh+'world_clear.fsh',text:CLEAR}];
+Ls.forEach((L,i)=>fs.push({name:sh+'world_effect_'+i+'.fsh',text:buildLayerFsh(L,glowSlot(st,L),st,false)}));
+if(Ls.some(needsGlow))fs.push({name:sh+'glow_detect.fsh',text:buildDetectFsh(st)},{name:sh+'glow_reduce.fsh',text:REDUCE});
+if(outlineMode(st)==='filter')fs.push({name:sh+'glow_filter.fsh',text:buildFilterFsh(st)});
+return fs}
+
+// ---- import: this version's settings, or the older single-effect builder's settings / pack / world_effect.fsh
+const num=v=>v==null||v===''||typeof v==='boolean'?NaN:+v;
+const isHex=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
+function cleanLayer(o){const L=newLayer();
+if(typeof o.name==='string')L.name=o.name.slice(0,40);
+if('enabled'in o)L.enabled=!!o.enabled;
+if(typeof o.CUSTOM==='string')L.CUSTOM=o.CUSTOM;
+if(isHex(o.TRIGGER))L.TRIGGER=o.TRIGGER.toLowerCase();
+if(isFinite(num(o.TOL)))L.TOL=Math.min(.5,Math.max(0,num(o.TOL)));
+K.forEach(c=>{const k=c[0],v=o[k];if(isCol(c)){if(isHex(v))L[k]=v.toLowerCase()}else if(isFinite(num(v)))L[k]=num(v)});
+return L}
+function fromAny(o){if(!o||typeof o!=='object'||Array.isArray(o))throw Error('not a settings file');
+const st=newState(),set=(k,lo,hi,v)=>{v=num(v===undefined?o[k]:v);if(isFinite(v))st[k]=Math.min(hi,Math.max(lo,Math.round(v)))};
+if(Array.isArray(o.layers)){
+if(o.pack&&typeof o.pack==='object'){if(o.pack.name!=null)st.pack.name=String(o.pack.name);if(o.pack.desc!=null)st.pack.desc=String(o.pack.desc);if(isFinite(num(o.pack.format)))st.pack.format=num(o.pack.format)}
+set('FOV',30,110);set('RENDER_DIST',2,32);set('CLOUD_DIST',2,128);set('OTHER_OUTLINES',0,1);
+st.layers=o.layers.slice(0,MAX_LAYERS).filter(l=>l&&typeof l==='object').map(cleanLayer);if(!st.layers.length)st.layers=[newLayer('Main')];
+return{st,note:'Imported '+st.layers.length+' layer'+(st.layers.length>1?'s':'')}}
+// older builder: one effect that ran for any glowing entity
+const L=cleanLayer(o);L.name='Imported';
+L.OUTLINE=st.OTHER_OUTLINES=num(o.KEEP_OUTLINE)>0?1:0;
+let note='Imported the older settings as one layer (any glow color)';
+if(o.USE_DEPTH!==true&&DEPTH_KEYS.some(k=>L[k]>(k==='DIST_PIXEL'?1:0))){DEPTH_KEYS.forEach(k=>L[k]=0);note+='; its depth buffer was off, so depth effects stay off'}
+set('FOV',30,110);if(isFinite(num(o.FAR)))set('RENDER_DIST',2,32,num(o.FAR)/64);
+st.layers=[L];return{st,note}}
+function parseOldFsh(t){const o={};
+for(const m of t.matchAll(/const (?:float|vec3) (\w+) = (?:vec3\(([^)]*)\)|([-+\d.eE]+));/g))
+o[m[1]]=m[2]!==undefined?'#'+m[2].split(',').map(v=>Math.round(Math.max(0,Math.min(1,+v))*255).toString(16).padStart(2,'0')).join(''):+m[3];
+const d=t.match(/#define USE_DEPTH (\d)/);o.USE_DEPTH=!!d&&d[1]==='1';return o}
+async function readZip(buf){const dv=new DataView(buf),u8=new Uint8Array(buf),out={};
+let e=buf.byteLength-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;if(e<0)throw Error('not a zip file');
+for(let i=0,p=dv.getUint32(e+16,true),n=dv.getUint16(e+10,true);i<n;i++){
+const method=dv.getUint16(p+10,true),size=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),lo=dv.getUint32(p+42,true);
+const name=new TextDecoder().decode(u8.subarray(p+46,p+46+nl)),at=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true);
+let data=u8.subarray(at,at+size);
+if(method===8)data=new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+if(method===0||method===8)out[name]=data;
+p+=46+nl+dv.getUint16(p+30,true)+dv.getUint16(p+32,true)}
+return out}
+async function importData(fname,buf){const u8=new Uint8Array(buf),td=new TextDecoder();
+if(u8[0]===0x50&&u8[1]===0x4b){const z=await readZip(buf),find=s=>Object.keys(z).find(k=>k===s||k.endsWith('/'+s)),text=k=>td.decode(z[k]);
+const sj=find('glow_world_effect.json'),old=find('assets/minecraft/shaders/post/world_effect.fsh');
+if(sj)return fromAny(JSON.parse(text(sj)));
+if(!old)throw Error('no Glow World Effect files in that zip');
+const r=fromAny(parseOldFsh(text(old)));r.st.pack.name=fname.replace(/\.zip$/i,'');
+const mc=find('pack.mcmeta');if(mc)try{const p=JSON.parse(text(mc)).pack||{};if(typeof p.description==='string')r.st.pack.desc=p.description;if(isFinite(num(p.min_format)))r.st.pack.format=num(p.min_format)}catch(x){}
+return r}
+const t=td.decode(u8);if(/^\s*\{/.test(t))return fromAny(JSON.parse(t));
+if(/const float \w+ = /.test(t))return fromAny(parseOldFsh(t));
+throw Error('not a settings file, pack zip or world_effect.fsh')}
+
+// ---- stored (uncompressed) zip writer
+const CT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc=b=>{let c=~0;for(const x of b)c=CT[(c^x)&255]^(c>>>8);return(~c)>>>0};
+function zip(fs){const E=new TextEncoder(),out=[],cen=[];let off=0;const w=(a,...v)=>{for(const[x,n]of v)for(let i=0;i<n;i++)a.push((x>>>(8*i))&255)};
+fs.forEach(f=>{const nm=E.encode(f.name),d=E.encode(f.text),c=crc(d),L=[];w(L,[0x04034b50,4],[20,2],[0x800,2],[0,2],[0,2],[0x21,2],[c,4],[d.length,4],[d.length,4],[nm.length,2],[0,2]);
+out.push(new Uint8Array(L),nm,d);const C=[];w(C,[0x02014b50,4],[20,2],[20,2],[0x800,2],[0,2],[0,2],[0x21,2],[c,4],[d.length,4],[d.length,4],[nm.length,2],[0,2],[0,2],[0,2],[0,2],[0,4],[off,4]);cen.push(new Uint8Array(C),nm);off+=L.length+nm.length+d.length});
+const cs=cen.reduce((s,x)=>s+x.length,0),Z=[];w(Z,[0x06054b50,4],[0,2],[0,2],[fs.length,2],[fs.length,2],[cs,4],[off,4],[0,2]);return new Blob([...out,...cen,new Uint8Array(Z)],{type:'application/zip'})}
+//CORE_END
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let ST=newState(),sel=0,saveT;
+const cur=()=>ST.layers[sel];
+function setStatus(t,err){$('st').textContent=t;$('st').className=err?'err':''}
+const teamOf=L=>TEAM.find(t=>t[1]===L.TRIGGER);
+const trigLabel=L=>L.TRIGGER==='any'?'any color':(teamOf(L)||[L.TRIGGER])[0];
+
+function buildUI(){
+$('groups').innerHTML=G.map((g,gi)=>'<details class="g"'+(gi<2?' open':'')+'><summary>'+g[0]+'</summary><div class="grid">'+g[1].map(c=>{const k=c[0];
+if(SEL[k])return'<div class="c"><div class="top"><label>'+c[1]+'</label></div><select data-k="'+k+'" class="w">'+SEL[k].map((o,i)=>'<option value="'+i+'">'+o+'</option>').join('')+'</select>'+(c[2]?'<small>'+c[2]+'</small>':'')+'</div>';
+if(isCol(c))return'<div class="c"><div class="top"><label>'+c[1]+'</label><input type="color" data-k="'+k+'"></div></div>';
+return'<div class="c"><div class="top"><label>'+c[1]+'</label><input class="num" type="number" step="'+c[4]+'" data-n="'+k+'"></div><input type="range" min="'+c[2]+'" max="'+c[3]+'" step="'+c[4]+'" data-k="'+k+'">'+(c[6]?'<small>'+c[6]+'</small>':'')+'</div>'}).join('')+'</div></details>').join('');
+$('groups').addEventListener('input',e=>{const t=e.target,k=t.dataset.k||t.dataset.n;if(!k)return;cur()[k]=t.type==='color'?t.value:+t.value;syncFx(t);if(k==='MASK_MODE')syncHead();changed()});
+$('trig').innerHTML='<option value="any">Any glow color</option>'+TEAM.map(t=>'<option value="'+t[1]+'">Team color: '+t[0]+(t[0]==='white'?' (also: no team)':'')+'</option>').join('')+'<option value="custom">Custom color (display entities)</option>';
+$('trig').onchange=()=>{const v=$('trig').value;cur().TRIGGER=v==='any'?'any':v==='custom'?$('tcol').value:v;syncHead();changed()};
+$('tcol').oninput=()=>{cur().TRIGGER=$('tcol').value;syncHead();changed()};
+$('tol').oninput=()=>{cur().TOL=+$('tol').value;changed()};
+$('lname').oninput=()=>{cur().name=$('lname').value;changed()};
+$('custom').oninput=()=>{cur().CUSTOM=$('custom').value;changed()};
+$('preset').innerHTML='<option value="">Apply a preset…</option>'+Object.keys(PRE).map(n=>'<option>'+n+'</option>').join('');
+$('preset').onchange=()=>{const n=$('preset').value;if(n)applyPreset(n);$('preset').value=''};
+$('pname').oninput=()=>{ST.pack.name=$('pname').value;changed()};$('pdesc').oninput=()=>{ST.pack.desc=$('pdesc').value;changed()};$('pfmt').oninput=()=>{ST.pack.format=+$('pfmt').value;changed()};
+['FOV','RENDER_DIST','CLOUD_DIST','OTHER_OUTLINES'].forEach(k=>$('g_'+k).oninput=$('g_'+k).onchange=()=>{ST[k]=+$('g_'+k).value;changed()});
+$('layers').onclick=e=>{const en=e.target.dataset.en;if(en!=null){ST.layers[+en].enabled=e.target.checked;changed();return}const li=e.target.closest('.li');if(li){sel=+li.dataset.i;syncAll()}};
+$('imp').onchange=impSet;$('img').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)createImageBitmap(f).then(drawScene).catch(()=>setStatus('Could not read that image',1))};
+const cmp=$('cmp');cmp.onpointerdown=()=>PV.compare=true;cmp.onpointerup=cmp.onpointerleave=()=>PV.compare=false}
+
+function renderLayers(){$('layers').innerHTML=ST.layers.map((L,i)=>'<div class="li'+(i===sel?' on':'')+(L.enabled?'':' off')+'" data-i="'+i+'"><input type="checkbox" data-en="'+i+'"'+(L.enabled?' checked':'')+' title="Include in the pack"><span class="dot'+(L.TRIGGER==='any'?' any':'')+'"'+(L.TRIGGER==='any'?'':' style="background:'+L.TRIGGER+'"')+'></span><span class="nm">'+esc(L.name||'(unnamed)')+'</span><span class="tg">'+trigLabel(L)+' · '+['whole screen','on the entities','except the entities'][+L.MASK_MODE]+'</span></div>').join('')}
+function trigHint(L){const ent='@e[type=armor_stand,limit=1,sort=nearest]';
+if(L.TRIGGER==='any')return'Any glowing entity triggers this layer, e.g. <code>/effect give '+ent+' glowing infinite 0 true</code>';
+const t=teamOf(L),disp='<code>/data merge entity @e[type=item_display,limit=1,sort=nearest] {Glowing:1b,glow_color_override:'+parseInt(L.TRIGGER.slice(1),16)+'}</code>';
+let h=t?(t[0]==='white'?'Entities without a team glow white: <code>/effect give '+ent+' glowing infinite 0 true</code>':'Put a glowing entity on a team with this color: <code>/team add gwe_'+t[0]+'</code> <code>/team modify gwe_'+t[0]+' color '+t[0]+'</code> <code>/team join gwe_'+t[0]+' '+ent+'</code>')+'. Display entities can also use '+disp:'Custom colors need a display entity: '+disp;
+if(+L.MASK_MODE!==1)h+='<br>The layer is on while that color is anywhere in view, even behind walls.';
+return h}
+function syncHead(){const L=cur(),t=teamOf(L);$('lname').value=L.name;$('tol').value=L.TOL;$('custom').value=L.CUSTOM;
+$('trig').value=L.TRIGGER==='any'?'any':t?t[1]:'custom';$('tcol').value=L.TRIGGER==='any'?'#ffffff':L.TRIGGER;$('tol').disabled=L.TRIGGER==='any';$('thint').innerHTML=trigHint(L)}
+function syncFx(skip){const L=cur();document.querySelectorAll('#groups [data-k],#groups [data-n]').forEach(e=>{if(e!==skip)e.value=L[e.dataset.k||e.dataset.n]})}
+function syncAll(){$('pname').value=ST.pack.name;$('pfmt').value=ST.pack.format;$('pdesc').value=ST.pack.desc;['FOV','RENDER_DIST','CLOUD_DIST','OTHER_OUTLINES'].forEach(k=>$('g_'+k).value=ST[k]);syncHead();syncFx(null);changed()}
+function changed(){renderLayers();const L=cur();$('fsh').value=L.enabled?buildLayerFsh(L,glowSlot(ST,L),ST,false):'// this layer is unticked, so it is not in the pack';$('pj').value=buildJson(ST);
+PV.fs=enabledLayers(ST).map(L=>({name:L.name,src:buildLayerFsh(L,0,ST,true)}));
+clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem('gwe26_state',exportJson(ST))}catch(x){}},300)}
+function addLayer(){if(ST.layers.length>=MAX_LAYERS)return setStatus('Up to '+MAX_LAYERS+' layers',1);ST.layers.push(newLayer('Layer '+(ST.layers.length+1)));sel=ST.layers.length-1;syncAll()}
+function dupLayer(){if(ST.layers.length>=MAX_LAYERS)return setStatus('Up to '+MAX_LAYERS+' layers',1);const c=JSON.parse(JSON.stringify(cur()));c.name+=' copy';ST.layers.splice(sel+1,0,c);sel++;syncAll()}
+function delLayer(){if(ST.layers.length<2)return setStatus('Keep at least one layer (untick it to leave it out)',1);ST.layers.splice(sel,1);sel=Math.min(sel,ST.layers.length-1);syncAll()}
+function moveLayer(d){const j=sel+d;if(j<0||j>=ST.layers.length)return;[ST.layers[sel],ST.layers[j]]=[ST.layers[j],ST.layers[sel]];sel=j;syncAll()}
+function applyPreset(n){const L=cur(),keep={MASK_MODE:L.MASK_MODE,OUTLINE:L.OUTLINE};Object.assign(L,FX,keep,PRE[n]);syncFx(null);changed();setStatus('Preset "'+n+'" applied to '+L.name)}
+function loadState(st,note){ST=st;sel=0;syncAll();setStatus(note)}
+function impSet(e){const f=e.target.files[0];e.target.value='';if(!f)return;f.arrayBuffer().then(b=>importData(f.name,b)).then(r=>loadState(r.st,r.note+' from '+f.name)).catch(x=>setStatus('Could not import '+f.name+': '+(x.message||x),1))}
+function dlBlob(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function dlText(n,t){dlBlob(new Blob([t],{type:'text/plain'}),n);setStatus('Downloaded '+n)}
+const packName=()=>(ST.pack.name||'GlowWorldEffect').replace(/[^\w\-. ]/g,'')||'GlowWorldEffect';
+function dlZip(){const n=packName();dlBlob(zip(buildPack(ST)),n+'.zip');setStatus('Downloaded '+n+'.zip')}
+async function saveFolder(){if(!window.showDirectoryPicker){setStatus('Folder saving is not supported in this browser, use the zip instead.',1);return}
+try{const root=await showDirectoryPicker({mode:'readwrite'}),pn=packName(),base=await root.getDirectoryHandle(pn,{create:true});
+for(const f of buildPack(ST)){let d=base;const parts=f.name.split('/');for(const p of parts.slice(0,-1))d=await d.getDirectoryHandle(p,{create:true});const fh=await d.getFileHandle(parts.at(-1),{create:true}),ws=await fh.createWritable();await ws.write(f.text);await ws.close()}
+setStatus('Saved folder "'+pn+'". Pick your resourcepacks folder to install it directly.')}catch(e){setStatus('Cancelled or blocked: '+e.message,1)}}
+
+// ---- live preview: the same layer shaders in WebGL2 (GLSL ES 3.00), on a sample scene or a screenshot
+const W=960,H=540,PV={fs:[],progs:new Map(),errs:new Map(),compare:false,lastErr:''};
+const PVS='#version 300 es\nout vec2 texCoord;\nvoid main(){ vec2 uv=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2)); gl_Position=vec4(uv*2.0-1.0,0.0,1.0); texCoord=uv; }';
+const PCOPY='#version 300 es\nprecision highp float;\nuniform sampler2D MainSampler;\nin vec2 texCoord;\nout vec4 fragColor;\nvoid main(){ fragColor=texture(MainSampler,texCoord); }';
+function mkTex(){const gl=PV.gl,t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,W,H,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER].forEach(p=>gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST));[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T].forEach(p=>gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE));return t}
+function mkFbo(){const gl=PV.gl,tex=mkTex(),fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);gl.bindFramebuffer(gl.FRAMEBUFFER,null);return{fb,tex}}
+function upload(t,cv){const gl=PV.gl;gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv)}
+function prog(fs){if(PV.progs.has(fs))return PV.progs.get(fs);const gl=PV.gl;let p=gl.createProgram();
+const sh=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(s);gl.attachShader(p,s)};
+try{sh(gl.VERTEX_SHADER,PVS);sh(gl.FRAGMENT_SHADER,fs);gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw gl.getProgramInfoLog(p)}catch(e){gl.deleteProgram(p);p=null;PV.errs.set(fs,String(e).replace(/\x00/g,'').trim())}
+if(PV.progs.size>64){PV.progs.forEach(q=>q&&gl.deleteProgram(q));PV.progs.clear();PV.errs.clear()}
+PV.progs.set(fs,p);return p}
+function draw(p,src,out,gt){const gl=PV.gl,u=n=>gl.getUniformLocation(p,n);gl.bindFramebuffer(gl.FRAMEBUFFER,out?out.fb:null);gl.useProgram(p);
+gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,src);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,PV.mask);
+gl.uniform1i(u('MainSampler'),0);gl.uniform1i(u('MaskSampler'),1);gl.uniform2f(u('OutSize'),W,H);gl.uniform2f(u('MainSize'),W,H);gl.uniform1f(u('GameTime'),gt);gl.drawArrays(gl.TRIANGLES,0,3)}
+function pvLoop(t){requestAnimationFrame(pvLoop);const gl=PV.gl;if(document.hidden)return;
+const gt=(t/50%24000)/24000,errs=[],ok=[];   // GameTime: 20 ticks per second, like the game
+(PV.compare?[]:PV.fs).forEach(l=>{const p=prog(l.src);if(p)ok.push(p);else errs.push(l.name+': '+PV.errs.get(l.src))});
+gl.bindVertexArray(PV.vao);gl.viewport(0,0,W,H);let src=PV.src;
+if(!ok.length)draw(prog(PCOPY),src,null,gt);
+ok.forEach((p,i)=>{const out=i===ok.length-1?null:(src===PV.a.tex?PV.b:PV.a);draw(p,src,out,gt);if(out)src=out.tex});
+const e=errs.join('\n');if(e!==PV.lastErr)$('pverr').textContent=PV.lastErr=e}
+const shade=(c,s)=>'rgb('+c.map(v=>Math.min(255,v*s|0))+')';
+function figure(x,col){x.fillStyle=col;[[602,226,36,36],[596,264,48,64],[580,266,14,58],[646,266,14,58],[600,328,18,66],[622,328,18,66]].forEach(r=>x.fillRect(...r))}
+function drawScene(img){if(!PV.gl)return;const c=PV.scene||(PV.scene=Object.assign(document.createElement('canvas'),{width:W,height:H})),x=c.getContext('2d');
+if(img&&img.width){x.fillStyle='#000';x.fillRect(0,0,W,H);const s=Math.max(W/img.width,H/img.height);x.drawImage(img,(W-img.width*s)/2,(H-img.height*s)/2,img.width*s,img.height*s)}
+else{let seed=7;const r=()=>(seed=(seed*1664525+1013904223)>>>0)/4294967296;
+let g=x.createLinearGradient(0,0,0,330);g.addColorStop(0,'#4f86d9');g.addColorStop(1,'#cfe3f6');x.fillStyle=g;x.fillRect(0,0,W,H);
+g=x.createRadialGradient(790,90,0,790,90,80);g.addColorStop(0,'#fffbe6');g.addColorStop(.3,'#ffe9a8');g.addColorStop(1,'rgba(255,233,168,0)');x.fillStyle=g;x.fillRect(700,0,180,180);
+x.fillStyle='rgba(255,255,255,.88)';[[80,70,150,22],[124,56,70,18],[410,112,190,20],[462,98,90,16]].forEach(a=>x.fillRect(...a));
+x.fillStyle='#62808e';x.beginPath();x.moveTo(0,330);for(let i=0;i<=W;i+=16)x.lineTo(i,296-Math.sin(i*.012)*26-Math.sin(i*.031)*10);x.lineTo(W,330);x.fill();
+for(let y=330;y<H;y+=30)for(let i=0;i<W;i+=30){x.fillStyle=shade(y===330?[96,158,62]:y<420?[134,96,62]:[118,118,124],.85+r()*.3);x.fillRect(i,y,30,30)}
+[[150,300,2],[180,300,1],[780,300,3],[810,300,1]].forEach(([bx,by,n])=>{for(let k=0;k<n;k++){x.fillStyle=shade([150,150,156],.85+r()*.3);x.fillRect(bx,by-k*30,30,30)}});
+x.fillStyle='#6b4a2b';x.fillRect(384,206,26,124);for(let k=0;k<14;k++){x.fillStyle=shade([58,122,46],.8+r()*.4);x.fillRect(340+(k%5)*24,138+Math.floor(k/5)*26,26,28)}
+figure(x,'#c9a56c')}
+upload(PV.src,c);
+const m=PV.maskCv||(PV.maskCv=Object.assign(document.createElement('canvas'),{width:W,height:H})),mx=m.getContext('2d');mx.clearRect(0,0,W,H);figure(mx,'#ffffff');upload(PV.mask,m)}
+function pvInit(){const gl=$('pv').getContext('webgl2');if(!gl){$('pvnote').textContent='Preview needs WebGL2, which this browser does not have. The pack builder still works.';return}
+PV.gl=gl;PV.vao=gl.createVertexArray();PV.src=mkTex();PV.mask=mkTex();PV.a=mkFbo();PV.b=mkFbo();drawScene();requestAnimationFrame(pvLoop)}
+
+buildUI();
+try{const s=localStorage.getItem('gwe26_state');if(s)ST=fromAny(JSON.parse(s)).st}catch(x){}
+pvInit();syncAll();
+</script></body></html>
